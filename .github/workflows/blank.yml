@@ -47,13 +47,6 @@ jobs:
           curl -L -o oqs-provider-0.7.0.zip https://github.com/open-quantum-safe/oqs-provider/archive/refs/tags/0.7.0.zip
           unzip -q oqs-provider-0.7.0.zip
           mv oqs-provider-0.7.0 oqs-provider
-          # Debug: Check what's in the oqs-provider directory
-          echo "=== Contents of oqs-provider directory ==="
-          ls -la oqs-provider/
-          echo "=== Looking for CMakeLists.txt ==="
-          find oqs-provider/ -name "CMakeLists.txt" -type f
-          echo "=== Current working directory ==="
-          pwd
 
       - name: Set up dependencies (Linux)
         if: runner.os == 'Linux'
@@ -155,33 +148,8 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          echo "=== Debug: Current directory and contents ==="
-          pwd
-          ls -la
-          echo "=== Debug: oqs-provider directory contents ==="
-          ls -la oqs-provider/
-          echo "=== Debug: Looking for CMakeLists.txt ==="
-          find . -name "CMakeLists.txt" -type f
-          
           cd oqs-provider
-          echo "=== Debug: Inside oqs-provider directory ==="
-          pwd
-          ls -la
-          
-          # Check if CMakeLists.txt exists before proceeding
-          if [ ! -f "CMakeLists.txt" ]; then
-            echo "ERROR: CMakeLists.txt not found in oqs-provider directory"
-            echo "Available files:"
-            ls -la
-            exit 1
-          fi
-          
           mkdir -p build && cd build
-          echo "=== Debug: About to run cmake ==="
-          echo "Current directory: $(pwd)"
-          echo "Parent directory contents:"
-          ls -la ../
-          
           cmake .. \
             -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/liboqs/install;$GITHUB_WORKSPACE/openssl/build" \
             -DOPENSSL_ROOT_DIR="$GITHUB_WORKSPACE/openssl/build"
