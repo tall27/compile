@@ -68,9 +68,10 @@ jobs:
 
       - name: Ensure clean build dirs before clone (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          if exist liboqs rmdir /s /q liboqs
-          if exist openssl rmdir /s /q openssl
+          if (Test-Path liboqs) { Remove-Item -Recurse -Force liboqs }
+          if (Test-Path openssl) { Remove-Item -Recurse -Force openssl }
 
       - name: Clone and build OpenSSL 3.5 (Linux/macOS)
         if: runner.os != 'Windows'
