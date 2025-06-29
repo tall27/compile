@@ -26,14 +26,15 @@ jobs:
       - name: Checkout this repository
         uses: actions/checkout@v4
 
-      - name: Cache liboqs and oqs-provider build
+      - name: Cache build directories
         uses: actions/cache@v4
         with:
           path: |
             liboqs/build
             liboqs/install
             oqs-provider/build
-          key: ${{ runner.os }}-liboqs-${{ hashFiles('**/oqs-provider-0.7.0.zip') }}
+            openssl/build
+          key: ${{ runner.os }}-cache-${{ hashFiles('**/oqs-provider-0.7.0.zip') }}
 
       - name: Download oqs-provider 0.7.0 source zip
         run: |
@@ -45,40 +46,59 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libssl-dev git
+          sudo apt-get install -y cmake build-essential perl git
 
       - name: Set up dependencies (macOS)
         if: startsWith(matrix.platform, 'macos')
         run: |
           brew update
-          brew install cmake openssl git
+          brew install cmake perl git
 
       - name: Set up dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
           choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-          choco install git -y
-          choco install openssl --version=3.3.0 -y
+          choco install strawberryperl git -y
 
-      - name: Build and install liboqs (Linux)
-        if: runner.os == 'Linux'
+      - name: Ensure clean build dirs before clone
+        run: |
+          if [ -d "liboqs" ]; then rm -rf liboqs; fi
+          if [ -d "openssl" ]; then rm -rf openssl; fi
+        shell: bash
+
+      - name: Ensure clean build dirs before clone (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          if exist liboqs rmdir /s /q liboqs
+          if exist openssl rmdir /s /q openssl
+
+      - name: Clone and build OpenSSL 3.5 (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          git clone --branch openssl-3.5.0 --depth 1 https://github.com/openssl/openssl.git
+          cd openssl
+          ./Configure --prefix=$GITHUB_WORKSPACE/openssl/build --openssldir=$GITHUB_WORKSPACE/openssl/build no-shared
+          make -j$(nproc || sysctl -n hw.logicalcpu)
+          make install_sw
+        shell: bash
+
+      - name: Clone and build OpenSSL 3.5 (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          git clone --branch openssl-3.5.0 --depth 1 https://github.com/openssl/openssl.git
+          cd openssl
+          perl Configure VC-WIN64A no-shared --prefix=%GITHUB_WORKSPACE%\openssl\build --openssldir=%GITHUB_WORKSPACE%\openssl\build
+          nmake
+          nmake install_sw
+
+      - name: Build and install liboqs (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           git clone --branch main --depth 1 https://github.com/open-quantum-safe/liboqs.git
           cd liboqs
           mkdir -p build && cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/liboqs/install
-          make -j$(nproc)
-          make install
-          cd ../..
-
-      - name: Build and install liboqs (macOS)
-        if: startsWith(matrix.platform, 'macos')
-        run: |
-          git clone --branch main --depth 1 https://github.com/open-quantum-safe/liboqs.git
-          cd liboqs
-          mkdir -p build && cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/liboqs/install
-          make -j$(sysctl -n hw.logicalcpu)
+          make -j$(nproc || sysctl -n hw.logicalcpu)
           make install
           cd ../..
 
@@ -89,28 +109,20 @@ jobs:
           cd liboqs
           mkdir build
           cd build
-          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/liboqs/install
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}\liboqs\install
           cmake --build . --config Release
           cmake --install . --config Release
           cd ../..
 
-      - name: Configure and build oqs-provider (Linux)
-        if: runner.os == 'Linux'
+      - name: Configure and build oqs-provider (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           cd oqs-provider
           mkdir -p build && cd build
-          cmake .. -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/liboqs/install"
-          make -j$(nproc)
-        env:
-          PKG_CONFIG_PATH: ${{ github.workspace }}/liboqs/install/lib/pkgconfig
-
-      - name: Configure and build oqs-provider (macOS)
-        if: startsWith(matrix.platform, 'macos')
-        run: |
-          cd oqs-provider
-          mkdir -p build && cd build
-          cmake .. -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/liboqs/install"
-          make -j$(sysctl -n hw.logicalcpu)
+          cmake .. \
+            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/liboqs/install;$GITHUB_WORKSPACE/openssl/build" \
+            -DOPENSSL_ROOT_DIR="$GITHUB_WORKSPACE/openssl/build"
+          make -j$(nproc || sysctl -n hw.logicalcpu)
 
       - name: Configure and build oqs-provider (Windows)
         if: runner.os == 'Windows'
@@ -118,31 +130,36 @@ jobs:
           cd oqs-provider
           mkdir build
           cd build
-          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="${{ github.workspace }}/liboqs/install" -DOPENSSL_ROOT_DIR="C:/Program Files/OpenSSL"
+          cmake .. -G "Visual Studio 17 2022" -A x64 ^
+            -DCMAKE_PREFIX_PATH="${{ github.workspace }}\liboqs\install;${{ github.workspace }}\openssl\build" ^
+            -DOPENSSL_ROOT_DIR="${{ github.workspace }}\openssl\build"
           cmake --build . --config Release
 
-      - name: Find oqsprovider shared library
+      - name: Find oqsprovider shared library and openssl executable
         id: find-lib
         shell: bash
         run: |
-          # Linux
+          # Find oqsprovider shared library
           if [[ "${{ matrix.platform }}" == "linux-amd64" ]]; then
             libfile=$(find oqs-provider/build -name 'oqsprovider.so' | head -n1)
-            echo "libpath=$libfile" >> $GITHUB_OUTPUT
-          fi
-          # macOS (amd64 or arm64)
-          if [[ "${{ matrix.platform }}" == "macos-amd64" || "${{ matrix.platform }}" == "macos-arm64" ]]; then
+          elif [[ "${{ matrix.platform }}" == "macos-amd64" || "${{ matrix.platform }}" == "macos-arm64" ]]; then
             libfile=$(find oqs-provider/build -name 'oqsprovider.dylib' | head -n1)
-            echo "libpath=$libfile" >> $GITHUB_OUTPUT
-          fi
-          # Windows
-          if [[ "${{ matrix.platform }}" == "windows-amd64" ]]; then
+          elif [[ "${{ matrix.platform }}" == "windows-amd64" ]]; then
             libfile=$(find oqs-provider/build -name 'oqsprovider.dll' | head -n1)
-            echo "libpath=$libfile" >> $GITHUB_OUTPUT
           fi
+          # Find openssl executable
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            openssl_bin=$(find openssl/build -name 'openssl.exe' | head -n1)
+          else
+            openssl_bin=$(find openssl/build -type f -perm +111 -name 'openssl' | head -n1)
+          fi
+          mkdir -p _oqs_artifact
+          cp "$libfile" _oqs_artifact/
+          cp "$openssl_bin" _oqs_artifact/
+          echo "artifact_dir=_oqs_artifact" >> $GITHUB_OUTPUT
 
-      - name: Upload oqsprovider library only (original name)
+      - name: Upload oqsprovider library and openssl executable (original names)
         uses: actions/upload-artifact@v4
         with:
           name: oqs-provider-${{ matrix.platform }}
-          path: ${{ steps.find-lib.outputs.libpath }}
+          path: ${{ steps.find-lib.outputs.artifact_dir }}/*
