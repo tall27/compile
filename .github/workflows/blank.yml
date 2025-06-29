@@ -127,21 +127,21 @@ jobs:
         run: |
           # Linux
           if [[ "${{ matrix.platform }}" == "linux-amd64" ]]; then
-            cp $(find oqs-provider/build -name 'oqsprovider.so' | head -n1) oqs-provider/build/oqs-provider-linux-amd64
-            echo "libpath=oqs-provider/build/oqs-provider-linux-amd64" >> $GITHUB_OUTPUT
+            libfile=$(find oqs-provider/build -name 'oqsprovider.so' | head -n1)
+            echo "libpath=$libfile" >> $GITHUB_OUTPUT
           fi
           # macOS (amd64 or arm64)
           if [[ "${{ matrix.platform }}" == "macos-amd64" || "${{ matrix.platform }}" == "macos-arm64" ]]; then
-            cp $(find oqs-provider/build -name 'oqsprovider.dylib' | head -n1) oqs-provider/build/oqs-provider-${{ matrix.platform }}
-            echo "libpath=oqs-provider/build/oqs-provider-${{ matrix.platform }}" >> $GITHUB_OUTPUT
+            libfile=$(find oqs-provider/build -name 'oqsprovider.dylib' | head -n1)
+            echo "libpath=$libfile" >> $GITHUB_OUTPUT
           fi
           # Windows
           if [[ "${{ matrix.platform }}" == "windows-amd64" ]]; then
-            cp $(find oqs-provider/build -name 'oqsprovider.dll' | head -n1) oqs-provider/build/oqs-provider-windows-amd64.dll
-            echo "libpath=oqs-provider/build/oqs-provider-windows-amd64.dll" >> $GITHUB_OUTPUT
+            libfile=$(find oqs-provider/build -name 'oqsprovider.dll' | head -n1)
+            echo "libpath=$libfile" >> $GITHUB_OUTPUT
           fi
 
-      - name: Upload oqsprovider library only
+      - name: Upload oqsprovider library only (original name)
         uses: actions/upload-artifact@v4
         with:
           name: oqs-provider-${{ matrix.platform }}
