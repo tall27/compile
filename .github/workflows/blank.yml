@@ -213,7 +213,7 @@ jobs:
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             openssl_bin=$(find openssl/build -name 'openssl.exe' | head -n1)
           else
-            openssl_bin=$(find openssl/build -type f -perm +111 -name 'openssl' | head -n1)
+            openssl_bin=$(find openssl/build -type f -perm /111 -name 'openssl' | head -n1)
           fi
           mkdir -p _oqs_artifact
           cp "$libfile" _oqs_artifact/
