@@ -2,6 +2,7 @@ name: Build oqs-provider v0.7
 
 on:
   workflow_dispatch:
+  push:
 
 jobs:
   build:
@@ -34,7 +35,11 @@ jobs:
             liboqs/install
             oqs-provider/build
             openssl/build
-          key: ${{ runner.os }}-cache-${{ hashFiles('**/oqs-provider-0.7.0.zip') }}
+            openssl/install
+          key: ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-v0.7.0-${{ hashFiles('.github/workflows/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-v0.7.0-
+            ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-
 
       - name: Download oqs-provider 0.7.0 source zip
         run: |
@@ -45,17 +50,31 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential perl git
+          # Check if packages are installed before installing
+          dpkg -l | grep -q cmake || sudo apt-get install -y cmake
+          dpkg -l | grep -q build-essential || sudo apt-get install -y build-essential
+          dpkg -l | grep -q perl || sudo apt-get install -y perl
+          dpkg -l | grep -q git || sudo apt-get install -y git
       - name: Set up dependencies (macOS)
         if: startsWith(matrix.platform, 'macos')
         run: |
-          brew update
-          brew install cmake perl git
+          # Check if packages are installed before installing
+          command -v cmake >/dev/null 2>&1 || brew install cmake
+          command -v perl >/dev/null 2>&1 || brew install perl
+          command -v git >/dev/null 2>&1 || brew install git
       - name: Set up dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-          choco install strawberryperl git -y
+          if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
+            choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+          }
+          if (-not (Get-Command perl -ErrorAction SilentlyContinue)) {
+            choco install strawberryperl -y
+          }
+          if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+            choco install git -y
+          }
+        shell: powershell
       - name: Ensure clean build dirs before clone (Unix)
         if: runner.os != 'Windows'
         run: |
