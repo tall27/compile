@@ -1,7 +1,6 @@
 name: Build oqs-provider v0.7
 
 on:
-  push:
   workflow_dispatch:
 
 jobs:
@@ -113,9 +112,7 @@ jobs:
         run: |
           cd oqs-provider
           mkdir -p build && cd build
-          cmake .. \
-            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/liboqs/install;$GITHUB_WORKSPACE/openssl/build" \
-            -DOPENSSL_ROOT_DIR="$GITHUB_WORKSPACE/openssl/build"
+          cmake .. -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/liboqs/install;$GITHUB_WORKSPACE/openssl/build" -DOPENSSL_ROOT_DIR="$GITHUB_WORKSPACE/openssl/build"
           make -j$(nproc || sysctl -n hw.logicalcpu)
       - name: Configure and build oqs-provider (Windows)
         if: runner.os == 'Windows'
