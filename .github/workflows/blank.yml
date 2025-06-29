@@ -39,23 +39,38 @@ jobs:
 
       - name: Download oqs-provider 0.7.0 source zip
         run: |
-          curl -L -o oqs-provider-0.7.0.zip https://github.com/open-quantum-safe/oqs-provider/archive/refs/tags/0.7.0.zip
+          set -x
+          echo "=== Download oqs-provider source ==="
+          curl -v -L -o oqs-provider-0.7.0.zip https://github.com/open-quantum-safe/oqs-provider/archive/refs/tags/0.7.0.zip
+          echo "=== List files after download ==="
+          ls -lh
+          echo "=== Unzip oqs-provider ==="
+          unzip -v oqs-provider-0.7.0.zip
           unzip -q oqs-provider-0.7.0.zip
+          echo "=== List files after unzip ==="
+          ls -lh
+          echo "=== Check for oqs-provider-0.7.0 directory ==="
+          ls -lh oqs-provider-0.7.0 || echo "oqs-provider-0.7.0 directory not found"
+          echo "=== Move directory ==="
           mv oqs-provider-0.7.0 oqs-provider
-          echo "Contents of oqs-provider:"
-          ls -l oqs-provider
-          echo "Looking for CMakeLists.txt:"
+          echo "=== List files after move ==="
+          ls -lh
+          echo "=== List oqs-provider directory contents ==="
+          ls -lh oqs-provider || echo "oqs-provider directory not found"
+          echo "=== Looking for CMakeLists.txt ==="
           ls -l oqs-provider/CMakeLists.txt || echo "CMakeLists.txt NOT FOUND"
 
       - name: Set up dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
+          set -x
           sudo apt-get update
           sudo apt-get install -y cmake build-essential perl git
 
       - name: Set up dependencies (macOS)
         if: startsWith(matrix.platform, 'macos')
         run: |
+          set -x
           brew update
           brew install cmake perl openssl@3 git
 
@@ -67,8 +82,11 @@ jobs:
 
       - name: Ensure clean build dirs before clone
         run: |
+          set -x
           if [ -d "liboqs" ]; then rm -rf liboqs; fi
           if [ -d "openssl" ]; then rm -rf openssl; fi
+          echo "Directories after cleanup:"
+          ls -lh
         shell: bash
 
       - name: Ensure clean build dirs before clone (Windows)
@@ -76,21 +94,30 @@ jobs:
         run: |          
           if (Test-Path liboqs) { Remove-Item -Recurse -Force liboqs }
           if (Test-Path openssl) { Remove-Item -Recurse -Force openssl }
+          Write-Host "Directories after cleanup:"
+          Get-ChildItem
 
       - name: Clone and build OpenSSL 3.5 (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
+          set -x
           git clone --branch openssl-3.5.0 --depth 1 https://github.com/openssl/openssl.git
+          echo "Contents of openssl directory:"
+          ls -lh openssl
           cd openssl
           ./Configure --prefix=$GITHUB_WORKSPACE/openssl/build --openssldir=$GITHUB_WORKSPACE/openssl/build no-shared
           make -j$(nproc || sysctl -n hw.logicalcpu)
           make install_sw
+          echo "OpenSSL build output:"
+          ls -lh $GITHUB_WORKSPACE/openssl/build
         shell: bash
 
       - name: Clone and build OpenSSL 3.5 (Windows)
         if: runner.os == 'Windows'
         run: |
           git clone --branch openssl-3.5.0 --depth 1 https://github.com/openssl/openssl.git
+          Write-Host "Contents of openssl directory:"
+          Get-ChildItem openssl
           cd openssl
           perl Configure VC-WIN64A no-shared --prefix=%GITHUB_WORKSPACE%\openssl\build --openssldir=%GITHUB_WORKSPACE%\openssl\build
           nmake
@@ -99,51 +126,74 @@ jobs:
       - name: Build and install liboqs (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
+          set -x
           git clone --branch main --depth 1 https://github.com/open-quantum-safe/liboqs.git
+          echo "Contents of liboqs directory:"
+          ls -lh liboqs
           cd liboqs
           mkdir -p build && cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/liboqs/install
           make -j$(nproc || sysctl -n hw.logicalcpu)
           make install
+          echo "liboqs install output:"
+          ls -lh $GITHUB_WORKSPACE/liboqs/install
           cd ../..
 
       - name: Build and install liboqs (Windows)
         if: runner.os == 'Windows'
         run: |
           git clone --branch main --depth 1 https://github.com/open-quantum-safe/liboqs.git
+          Write-Host "Contents of liboqs directory:"
+          Get-ChildItem liboqs
           cd liboqs
           mkdir build
           cd build
           cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}\liboqs\install
           cmake --build . --config Release
           cmake --install . --config Release
+          Write-Host "liboqs install output:"
+          Get-ChildItem $env:GITHUB_WORKSPACE\liboqs\install
           cd ../..
 
       - name: Configure and build oqs-provider (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
+          set -x
+          echo "Contents of oqs-provider before build:"
+          ls -lh oqs-provider
           cd oqs-provider
           mkdir -p build && cd build
+          echo "Running cmake .."
           cmake .. \
             -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/liboqs/install;$GITHUB_WORKSPACE/openssl/build" \
             -DOPENSSL_ROOT_DIR="$GITHUB_WORKSPACE/openssl/build"
+          echo "Running make"
           make -j$(nproc || sysctl -n hw.logicalcpu)
+          echo "oqs-provider build output:"
+          ls -lh
+        shell: bash
 
       - name: Configure and build oqs-provider (Windows)
         if: runner.os == 'Windows'
         run: |
+          Write-Host "Contents of oqs-provider before build:"
+          Get-ChildItem oqs-provider
           cd oqs-provider
           mkdir build
           cd build
+          Write-Host "Running cmake .."
           cmake .. -G "Visual Studio 17 2022" -A x64 ^
             -DCMAKE_PREFIX_PATH="${{ github.workspace }}\liboqs\install;${{ github.workspace }}\openssl\build" ^
             -DOPENSSL_ROOT_DIR="${{ github.workspace }}\openssl\build"
+          Write-Host "Running build"
           cmake --build . --config Release
 
       - name: Find oqsprovider shared library and openssl executable
         id: find-lib
         shell: bash
         run: |
+          set -x
+          echo "Finding oqsprovider shared library and openssl executable"
           # Find oqsprovider shared library
           if [[ "${{ matrix.platform }}" == "linux-amd64" ]]; then
             libfile=$(find oqs-provider/build -name 'oqsprovider.so' | head -n1)
@@ -161,8 +211,12 @@ jobs:
           fi
           echo "libfile=$libfile"
           echo "openssl_bin=$openssl_bin"
-          ls -l "$libfile"
-          ls -l "$openssl_bin"
+          ls -l "$libfile" || echo "oqsprovider shared library not found"
+          ls -l "$openssl_bin" || echo "openssl executable not found"
+          echo "Listing oqs-provider/build:"
+          ls -lh oqs-provider/build || echo "oqs-provider/build not found"
+          echo "Listing openssl/build:"
+          ls -lh openssl/build || echo "openssl/build not found"
           mkdir -p _oqs_artifact
           cp "$libfile" _oqs_artifact/
           cp "$openssl_bin" _oqs_artifact/
