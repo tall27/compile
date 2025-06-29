@@ -1,6 +1,7 @@
 name: Build oqs-provider v0.7
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
