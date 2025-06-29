@@ -38,9 +38,17 @@ jobs:
 
       - name: Download oqs-provider 0.7.0 source zip
         run: |
+          rm -rf oqs-provider oqs-provider-0.7.0
           curl -L -o oqs-provider-0.7.0.zip https://github.com/open-quantum-safe/oqs-provider/archive/refs/tags/0.7.0.zip
           unzip -q oqs-provider-0.7.0.zip
           mv oqs-provider-0.7.0 oqs-provider
+      
+      - name: Verify oqs-provider source
+        run: |
+          if [ ! -f "oqs-provider/CMakeLists.txt" ]; then
+            echo "CMakeLists.txt not found! Extraction failed."
+            exit 1
+          fi
 
       - name: Set up dependencies (Linux)
         if: runner.os == 'Linux'
