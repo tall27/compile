@@ -20,9 +20,9 @@ jobs:
       - name: Checkout this repo
         uses: actions/checkout@v4
 
-      - name: Clone oqs-provider v0.7.0
+      - name: Clone oqs-provider v0.7
         run: |
-          git clone --branch v0.7.0 --depth 1 https://github.com/open-quantum-safe/oqs-provider.git
+          git clone --branch v0.7 --depth 1 https://github.com/open-quantum-safe/oqs-provider.git
 
       - name: Set up dependencies (Linux)
         if: runner.os == 'Linux'
