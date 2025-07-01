@@ -8,11 +8,6 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    env:
-      GOPATH: C:\dev\tmp
-      GOCACHE: C:\dev\tmp\gocache
-      GOENV: C:\dev\tmp\goenv
-      GOMODCACHE: C:\dev\tmp\gomodcache
 
     steps:
       - name: Checkout this repo (for workflow file)
@@ -23,11 +18,23 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Cache Go build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            asciinema-edit/vendor
+          key: ${{ runner.os }}-go-${{ hashFiles('**/Gopkg.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Clone asciinema-edit
         run: git clone https://github.com/cirocosta/asciinema-edit.git
 
-      - name: Install dep
-        run: choco install -y golang-dep
+      - name: Download dep
+        run: |
+          curl -L -o dep.exe https://github.com/golang/dep/releases/download/v0.5.4/dep-windows-amd64.exe
+          move dep.exe C:\Windows\System32\dep.exe
 
       - name: Install dependencies
         run: |
