@@ -52,6 +52,7 @@ jobs:
         working-directory: D:\a\gopath\src\github.com\cirocosta\asciinema-edit
         env:
           GOPATH: D:\a\gopath
+          GO111MODULE: off
         run: go build -o asciinema-edit.exe
 
       - name: Upload Windows Executable
