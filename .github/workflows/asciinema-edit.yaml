@@ -23,7 +23,7 @@ jobs:
         with:
           path: |
             ~/.cache/go-build
-            asciinema-edit/vendor
+            D:\a\gopath\src\github.com\cirocosta\asciinema-edit\vendor
           key: ${{ runner.os }}-go-${{ hashFiles('**/Gopkg.lock') }}
           restore-keys: |
             ${{ runner.os }}-go-
@@ -31,23 +31,27 @@ jobs:
       - name: Clone asciinema-edit
         run: git clone https://github.com/cirocosta/asciinema-edit.git
 
+      - name: Prepare GOPATH and move repo
+        run: |
+          mkdir D:\a\gopath
+          mkdir D:\a\gopath\src\github.com\cirocosta
+          move asciinema-edit D:\a\gopath\src\github.com\cirocosta\asciinema-edit
+
       - name: Download dep
         run: |
           curl -L -o dep.exe https://github.com/golang/dep/releases/download/v0.5.4/dep-windows-amd64.exe
           move dep.exe C:\Windows\System32\dep.exe
 
       - name: Install dependencies
-        run: |
-          cd asciinema-edit
-          dep ensure
+        working-directory: D:\a\gopath\src\github.com\cirocosta\asciinema-edit
+        run: dep ensure
 
       - name: Build Windows Executable
-        run: |
-          cd asciinema-edit
-          go build -o asciinema-edit.exe
+        working-directory: D:\a\gopath\src\github.com\cirocosta\asciinema-edit
+        run: go build -o asciinema-edit.exe
 
       - name: Upload Windows Executable
         uses: actions/upload-artifact@v4
         with:
           name: asciinema-edit-windows
-          path: asciinema-edit/asciinema-edit.exe
+          path: D:\a\gopath\src\github.com\cirocosta\asciinema-edit\asciinema-edit.exe
