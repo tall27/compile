@@ -44,10 +44,14 @@ jobs:
 
       - name: Install dependencies
         working-directory: D:\a\gopath\src\github.com\cirocosta\asciinema-edit
+        env:
+          GOPATH: D:\a\gopath
         run: dep ensure
 
       - name: Build Windows Executable
         working-directory: D:\a\gopath\src\github.com\cirocosta\asciinema-edit
+        env:
+          GOPATH: D:\a\gopath
         run: go build -o asciinema-edit.exe
 
       - name: Upload Windows Executable
