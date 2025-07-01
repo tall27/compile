@@ -26,6 +26,14 @@ jobs:
       - name: Clone asciinema-edit
         run: git clone https://github.com/cirocosta/asciinema-edit.git
 
+      - name: Install dep
+        run: choco install -y golang-dep
+
+      - name: Install dependencies
+        run: |
+          cd asciinema-edit
+          dep ensure
+
       - name: Build Windows Executable
         run: |
           cd asciinema-edit
