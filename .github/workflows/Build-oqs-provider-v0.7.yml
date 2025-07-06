@@ -34,8 +34,6 @@ jobs:
             liboqs/build
             liboqs/install
             oqs-provider/build
-            openssl/build
-            openssl/install
           key: ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-v0.7.0-${{ hashFiles('.github/workflows/**') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-v0.7.0-
@@ -86,6 +84,8 @@ jobs:
           dpkg -l | grep -q build-essential || sudo apt-get install -y build-essential
           dpkg -l | grep -q perl || sudo apt-get install -y perl
           dpkg -l | grep -q git || sudo apt-get install -y git
+          # Install OpenSSL development headers
+          dpkg -l | grep -q libssl-dev || sudo apt-get install -y libssl-dev
 
       - name: Set up dependencies (macOS)
         if: startsWith(matrix.platform, 'macos')
@@ -94,6 +94,7 @@ jobs:
           command -v cmake >/dev/null 2>&1 || brew install cmake
           command -v perl >/dev/null 2>&1 || brew install perl
           command -v git >/dev/null 2>&1 || brew install git
+          # OpenSSL is usually already available on macOS
 
       - name: Set up dependencies (Windows)
         if: runner.os == 'Windows'
@@ -111,44 +112,26 @@ jobs:
           if (-not (Get-Command nasm -ErrorAction SilentlyContinue)) {
             choco install nasm -y
           }
+          # Install OpenSSL development headers
+          if (-not (Test-Path "C:\Program Files\OpenSSL-Win64")) {
+            choco install openssl -y
+          }
 
       - name: Ensure clean build dirs before clone (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           if [ -d "liboqs" ]; then rm -rf liboqs; fi
-          if [ -d "openssl" ]; then rm -rf openssl; fi
 
       - name: Ensure clean build dirs before clone (Windows)
         if: runner.os == 'Windows'
         shell: cmd
         run: |
           if exist liboqs rmdir /s /q liboqs
-          if exist openssl rmdir /s /q openssl
 
       - name: Setup MSVC (Windows)
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Clone and build OpenSSL 3.5 (Linux/macOS)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          git clone --branch openssl-3.5.0 --depth 1 https://github.com/openssl/openssl.git
-          cd openssl
-          ./Configure --prefix=$GITHUB_WORKSPACE/openssl/build --openssldir=$GITHUB_WORKSPACE/openssl/build no-shared
-          make -j$(nproc || sysctl -n hw.logicalcpu)
-          make install_sw
-
-      - name: Clone and build OpenSSL 3.5 (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        run: |
-          git clone --branch openssl-3.5.0 --depth 1 https://github.com/openssl/openssl.git
-          cd openssl
-          perl Configure VC-WIN64A no-shared no-asm --prefix=%GITHUB_WORKSPACE%\openssl\build --openssldir=%GITHUB_WORKSPACE%\openssl\build
-          nmake
-          nmake install_sw
 
       - name: Build and install liboqs (Linux/macOS)
         if: runner.os != 'Windows'
@@ -189,8 +172,7 @@ jobs:
           cd oqs-provider
           mkdir -p build && cd build
           cmake .. \
-            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/liboqs/install;$GITHUB_WORKSPACE/openssl/build" \
-            -DOPENSSL_ROOT_DIR="$GITHUB_WORKSPACE/openssl/build"
+            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/liboqs/install"
           make -j$(nproc || sysctl -n hw.logicalcpu)
 
       - name: Debug oqs-provider directory structure (Windows)
@@ -213,10 +195,10 @@ jobs:
           cd oqs-provider
           mkdir build
           cd build
-          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="%GITHUB_WORKSPACE%\liboqs\install;%GITHUB_WORKSPACE%\openssl\build" -DOPENSSL_ROOT_DIR="%GITHUB_WORKSPACE%\openssl\build"
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="%GITHUB_WORKSPACE%\liboqs\install"
           cmake --build . --config Release
 
-      - name: Find oqsprovider shared library and openssl executable
+      - name: Find oqsprovider shared library
         id: find-lib
         shell: bash
         run: |
@@ -228,18 +210,11 @@ jobs:
           elif [[ "${{ matrix.platform }}" == "windows-amd64" ]]; then
             libfile=$(find oqs-provider/build -name 'oqsprovider.dll' | head -n1)
           fi
-          # Find openssl executable
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            openssl_bin=$(find openssl/build -name 'openssl.exe' | head -n1)
-          else
-            openssl_bin=$(find openssl/build -type f -perm /111 -name 'openssl' | head -n1)
-          fi
           mkdir -p _oqs_artifact
           cp "$libfile" _oqs_artifact/
-          cp "$openssl_bin" _oqs_artifact/
           echo "artifact_dir=_oqs_artifact" >> $GITHUB_OUTPUT
 
-      - name: Upload oqsprovider library and openssl executable (original names)
+      - name: Upload oqsprovider library
         uses: actions/upload-artifact@v4
         with:
           name: oqs-provider-${{ matrix.platform }}
