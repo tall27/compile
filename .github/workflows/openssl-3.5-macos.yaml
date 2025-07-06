@@ -15,6 +15,10 @@ jobs:
         arch: [x64, arm64]
     steps:
       - uses: actions/checkout@v4
+      - name: Set up install directory variable
+        shell: bash
+        run: |
+          echo "INSTALL_DIR=$GITHUB_WORKSPACE/openssl-install" >> $GITHUB_ENV
       - name: Download and Setup OpenSSL Source
         shell: bash
         run: |
@@ -33,9 +37,9 @@ jobs:
         run: |
           cd openssl
           if [ "${{ matrix.arch }}" = "x64" ]; then
-            ./Configure darwin64-x86_64-cc no-shared no-module --prefix=/usr/local/openssl --openssldir=/usr/local/openssl/ssl
+            ./Configure darwin64-x86_64-cc no-shared no-module --prefix=$INSTALL_DIR --openssldir=$INSTALL_DIR/ssl
           else
-            ./Configure darwin64-arm64-cc no-shared no-module --prefix=/usr/local/openssl --openssldir=/usr/local/openssl/ssl
+            ./Configure darwin64-arm64-cc no-shared no-module --prefix=$INSTALL_DIR --openssldir=$INSTALL_DIR/ssl
           fi
       - name: Build
         shell: bash
@@ -51,7 +55,7 @@ jobs:
         shell: bash
         run: |
           echo Creating portable OpenSSL executable...
-          cp /usr/local/openssl/bin/openssl ./openssl
+          cp $INSTALL_DIR/bin/openssl ./openssl
           echo Testing portable executable...
           ./openssl version
           mkdir -p portable-package
@@ -75,7 +79,7 @@ jobs:
       - name: Package binaries
         shell: bash
         run: |
-          cd /usr/local/openssl
+          cd $INSTALL_DIR
           tar -czf openssl-3.5.0-${{ matrix.arch }}-macos-full.tar.gz *
           mv openssl-3.5.0-${{ matrix.arch }}-macos-full.tar.gz $GITHUB_WORKSPACE/
       - name: Create portable package

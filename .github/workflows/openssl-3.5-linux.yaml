@@ -15,6 +15,10 @@ jobs:
         arch: [x64]
     steps:
       - uses: actions/checkout@v4
+      - name: Set up install directory variable
+        shell: bash
+        run: |
+          echo "INSTALL_DIR=$GITHUB_WORKSPACE/openssl-install" >> $GITHUB_ENV
       - name: Download and Setup OpenSSL Source
         shell: bash
         run: |
@@ -34,7 +38,7 @@ jobs:
         shell: bash
         run: |
           cd openssl
-          ./Configure linux-x86_64 no-shared no-module --prefix=/usr/local/openssl --openssldir=/usr/local/openssl/ssl
+          ./Configure linux-x86_64 no-shared no-module --prefix=$INSTALL_DIR --openssldir=$INSTALL_DIR/ssl
       - name: Build
         shell: bash
         run: |
@@ -49,7 +53,7 @@ jobs:
         shell: bash
         run: |
           echo Creating portable OpenSSL executable...
-          cp /usr/local/openssl/bin/openssl ./openssl
+          cp $INSTALL_DIR/bin/openssl ./openssl
           echo Testing portable executable...
           ./openssl version
           mkdir -p portable-package
@@ -73,7 +77,7 @@ jobs:
       - name: Package binaries
         shell: bash
         run: |
-          cd /usr/local/openssl
+          cd $INSTALL_DIR
           tar -czf openssl-3.5.0-${{ matrix.arch }}-linux-full.tar.gz *
           mv openssl-3.5.0-${{ matrix.arch }}-linux-full.tar.gz $GITHUB_WORKSPACE/
       - name: Create portable package
