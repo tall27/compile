@@ -1,0 +1,94 @@
+name: OpenSSL 3.5.0 macOS Build
+
+on:
+  workflow_dispatch:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos:
+    runs-on: macos-14
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and Setup OpenSSL Source
+        shell: bash
+        run: |
+          echo Downloading OpenSSL 3.5.0...
+          curl -L -o openssl.zip https://github.com/openssl/openssl/archive/refs/tags/openssl-3.5.0.zip
+          echo Extracting archive...
+          unzip -q openssl.zip
+          mv openssl-openssl-3.5.0 openssl
+          echo Verifying directory exists...
+          ls -la openssl
+      - name: Install Dependencies
+        shell: bash
+        run: brew install perl
+      - name: Configure
+        shell: bash
+        run: |
+          cd openssl
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            ./Configure darwin64-x86_64-cc no-shared no-module --prefix=/usr/local/openssl --openssldir=/usr/local/openssl/ssl
+          else
+            ./Configure darwin64-arm64-cc no-shared no-module --prefix=/usr/local/openssl --openssldir=/usr/local/openssl/ssl
+          fi
+      - name: Build
+        shell: bash
+        run: |
+          cd openssl
+          make
+      - name: Install
+        shell: bash
+        run: |
+          cd openssl
+          make install
+      - name: Create portable executable
+        shell: bash
+        run: |
+          echo Creating portable OpenSSL executable...
+          cp /usr/local/openssl/bin/openssl ./openssl
+          echo Testing portable executable...
+          ./openssl version
+          mkdir -p portable-package
+          cp ./openssl portable-package/
+          echo "OpenSSL 3.5.0 Portable - ${{ matrix.arch }}" > portable-package/README.txt
+          echo "=======================================" >> portable-package/README.txt
+          echo "" >> portable-package/README.txt
+          echo "This is a standalone portable version of OpenSSL 3.5.0" >> portable-package/README.txt
+          echo "No installation required - just run the executable." >> portable-package/README.txt
+          echo "" >> portable-package/README.txt
+          echo "Usage: ./openssl [command] [options]" >> portable-package/README.txt
+          echo "" >> portable-package/README.txt
+          echo "Examples:" >> portable-package/README.txt
+          echo "  ./openssl version" >> portable-package/README.txt
+          echo "  ./openssl list -digest-algorithms" >> portable-package/README.txt
+          echo "  ./openssl genrsa -out private.key 2048" >> portable-package/README.txt
+          echo "  ./openssl req -new -x509 -key private.key -out cert.pem -days 365" >> portable-package/README.txt
+          echo "" >> portable-package/README.txt
+          echo "Platform: macOS ${{ matrix.arch }}" >> portable-package/README.txt
+          echo "Version: OpenSSL 3.5.0" >> portable-package/README.txt
+      - name: Package binaries
+        shell: bash
+        run: |
+          cd /usr/local/openssl
+          tar -czf openssl-3.5.0-${{ matrix.arch }}-macos-full.tar.gz *
+          mv openssl-3.5.0-${{ matrix.arch }}-macos-full.tar.gz $GITHUB_WORKSPACE/
+      - name: Create portable package
+        shell: bash
+        run: |
+          cd portable-package
+          tar -czf openssl-3.5.0-${{ matrix.arch }}-portable.tar.gz *
+          mv openssl-3.5.0-${{ matrix.arch }}-portable.tar.gz $GITHUB_WORKSPACE/
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openssl-3.5.0-${{ matrix.arch }}-packages
+          path: |
+            openssl-3.5.0-${{ matrix.arch }}-macos-full.tar.gz
+            openssl-3.5.0-${{ matrix.arch }}-portable.tar.gz
+          retention-days: 90 
