@@ -44,9 +44,38 @@ jobs:
       - name: Download oqs-provider 0.7.0 source zip
         shell: bash
         run: |
+          # Clean up any existing oqs-provider directory
+          rm -rf oqs-provider oqs-provider-0.7.0
+          
+          # Download the source
           curl -L -o oqs-provider-0.7.0.zip https://github.com/open-quantum-safe/oqs-provider/archive/refs/tags/0.7.0.zip
+          
+          # Verify download
+          ls -la oqs-provider-0.7.0.zip
+          
+          # Extract and verify contents
           unzip -q oqs-provider-0.7.0.zip
-          mv oqs-provider-0.7.0 oqs-provider
+          ls -la
+          
+          # Check what was extracted
+          if [ -d "oqs-provider-0.7.0" ]; then
+            mv oqs-provider-0.7.0 oqs-provider
+          elif [ -d "oqs-provider-oqs-provider-0.7.0" ]; then
+            mv oqs-provider-oqs-provider-0.7.0 oqs-provider
+          else
+            echo "Error: Could not find expected directory after extraction"
+            ls -la
+            exit 1
+          fi
+          
+          # Verify oqs-provider directory has CMakeLists.txt
+          if [ ! -f "oqs-provider/CMakeLists.txt" ]; then
+            echo "Error: oqs-provider/CMakeLists.txt not found"
+            ls -la oqs-provider/
+            exit 1
+          fi
+          
+          echo "Successfully downloaded and extracted oqs-provider"
 
       - name: Set up dependencies (Linux)
         if: runner.os == 'Linux'
@@ -144,6 +173,15 @@ jobs:
           cmake --build . --config Release
           cmake --install . --config Release
 
+      - name: Debug oqs-provider directory structure
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "oqs-provider directory contents:"
+          ls -la oqs-provider/
+          echo "oqs-provider/CMakeLists.txt exists: $(test -f oqs-provider/CMakeLists.txt && echo 'YES' || echo 'NO')"
+
       - name: Configure and build oqs-provider (Linux/macOS)
         if: runner.os != 'Windows'
         shell: bash
@@ -154,6 +192,19 @@ jobs:
             -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/liboqs/install;$GITHUB_WORKSPACE/openssl/build" \
             -DOPENSSL_ROOT_DIR="$GITHUB_WORKSPACE/openssl/build"
           make -j$(nproc || sysctl -n hw.logicalcpu)
+
+      - name: Debug oqs-provider directory structure (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          echo Current directory: %CD%
+          echo oqs-provider directory contents:
+          dir oqs-provider
+          if exist oqs-provider\CMakeLists.txt (
+            echo oqs-provider\CMakeLists.txt exists: YES
+          ) else (
+            echo oqs-provider\CMakeLists.txt exists: NO
+          )
 
       - name: Configure and build oqs-provider (Windows)
         if: runner.os == 'Windows'
