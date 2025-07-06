@@ -68,7 +68,7 @@ jobs:
             package_suffix: linux-full
           - os: ubuntu-22.04
             arch: arm64
-            config: no-shared no-module --prefix=/usr/local/openssl --openssldir=/usr/local/openssl/ssl
+            config: no-shared no-module no-asm --prefix=/usr/local/openssl --openssldir=/usr/local/openssl/ssl
             shell: bash
             configure_cmd: ./Configure linux-aarch64
             build_cmd: make
