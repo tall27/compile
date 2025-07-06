@@ -34,9 +34,9 @@ jobs:
             liboqs/build
             liboqs/install
             oqs-provider/build
-          key: ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-v0.7.0-${{ hashFiles('.github/workflows/**') }}
+          key: ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-v0.7.1-${{ hashFiles('.github/workflows/**') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-v0.7.0-
+            ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-v0.7.1-
             ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-
 
       - name: Download oqs-provider 0.7.0 source zip
@@ -202,14 +202,30 @@ jobs:
         id: find-lib
         shell: bash
         run: |
+          echo "Debug: matrix.platform = ${{ matrix.platform }}"
+          echo "Debug: runner.os = ${{ runner.os }}"
+          
           # Find oqsprovider shared library
           if [[ "${{ matrix.platform }}" == "linux-amd64" ]]; then
+            echo "Debug: Looking for .so file"
             libfile=$(find oqs-provider/build -name 'oqsprovider.so' | head -n1)
           elif [[ "${{ matrix.platform }}" == "macos-amd64" || "${{ matrix.platform }}" == "macos-arm64" ]]; then
+            echo "Debug: Looking for .dylib file"
             libfile=$(find oqs-provider/build -name 'oqsprovider.dylib' | head -n1)
           elif [[ "${{ matrix.platform }}" == "windows-amd64" ]]; then
+            echo "Debug: Looking for .dll file"
             libfile=$(find oqs-provider/build -name 'oqsprovider.dll' | head -n1)
           fi
+          
+          echo "Debug: Found library file: $libfile"
+          
+          if [ -z "$libfile" ]; then
+            echo "Error: Could not find oqsprovider library"
+            echo "Debug: Contents of oqs-provider/build:"
+            find oqs-provider/build -type f
+            exit 1
+          fi
+          
           mkdir -p _oqs_artifact
           cp "$libfile" _oqs_artifact/
           echo "artifact_dir=_oqs_artifact" >> $GITHUB_OUTPUT
