@@ -1,0 +1,62 @@
+name: asciinema-edit for Windows
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout this repo (for workflow file)
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Cache Go build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            D:\a\gopath\src\github.com\cirocosta\asciinema-edit\vendor
+          key: ${{ runner.os }}-go-${{ hashFiles('**/Gopkg.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Clone asciinema-edit
+        run: git clone https://github.com/cirocosta/asciinema-edit.git
+
+      - name: Prepare GOPATH and move repo
+        run: |
+          mkdir D:\a\gopath
+          mkdir D:\a\gopath\src\github.com\cirocosta
+          move asciinema-edit D:\a\gopath\src\github.com\cirocosta\asciinema-edit
+
+      - name: Download dep
+        run: |
+          curl -L -o dep.exe https://github.com/golang/dep/releases/download/v0.5.4/dep-windows-amd64.exe
+          move dep.exe C:\Windows\System32\dep.exe
+
+      - name: Install dependencies
+        working-directory: D:\a\gopath\src\github.com\cirocosta\asciinema-edit
+        env:
+          GOPATH: D:\a\gopath
+        run: dep ensure
+
+      - name: Build Windows Executable
+        working-directory: D:\a\gopath\src\github.com\cirocosta\asciinema-edit
+        env:
+          GOPATH: D:\a\gopath
+          GO111MODULE: off
+        run: go build -o asciinema-edit.exe
+
+      - name: Upload Windows Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: asciinema-edit-windows
+          path: D:\a\gopath\src\github.com\cirocosta\asciinema-edit\asciinema-edit.exe

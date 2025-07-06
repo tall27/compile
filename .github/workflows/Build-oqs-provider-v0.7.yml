@@ -1,0 +1,238 @@
+name: oqs-provider v0.7 (multi platform)
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-amd64
+            artifact_ext: so
+          - os: macos-latest
+            platform: macos-amd64
+            artifact_ext: dylib
+          - os: macos-14
+            platform: macos-arm64
+            artifact_ext: dylib
+          - os: windows-latest
+            platform: windows-amd64
+            artifact_ext: dll
+
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+
+      - name: Cache build directories
+        uses: actions/cache@v4
+        with:
+          path: |
+            liboqs/build
+            liboqs/install
+            oqs-provider/build
+          key: ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-v0.7.1-${{ hashFiles('.github/workflows/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-v0.7.1-
+            ${{ runner.os }}-${{ matrix.platform }}-oqs-provider-
+
+      - name: Download oqs-provider 0.7.0 source zip
+        shell: bash
+        run: |
+          # Clean up any existing oqs-provider directory
+          rm -rf oqs-provider oqs-provider-0.7.0
+          
+          # Download the source
+          curl -L -o oqs-provider-0.7.0.zip https://github.com/open-quantum-safe/oqs-provider/archive/refs/tags/0.7.0.zip
+          
+          # Verify download
+          ls -la oqs-provider-0.7.0.zip
+          
+          # Extract and verify contents
+          unzip -q oqs-provider-0.7.0.zip
+          ls -la
+          
+          # Check what was extracted
+          if [ -d "oqs-provider-0.7.0" ]; then
+            mv oqs-provider-0.7.0 oqs-provider
+          elif [ -d "oqs-provider-oqs-provider-0.7.0" ]; then
+            mv oqs-provider-oqs-provider-0.7.0 oqs-provider
+          else
+            echo "Error: Could not find expected directory after extraction"
+            ls -la
+            exit 1
+          fi
+          
+          # Verify oqs-provider directory has CMakeLists.txt
+          if [ ! -f "oqs-provider/CMakeLists.txt" ]; then
+            echo "Error: oqs-provider/CMakeLists.txt not found"
+            ls -la oqs-provider/
+            exit 1
+          fi
+          
+          echo "Successfully downloaded and extracted oqs-provider"
+
+      - name: Set up dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          # Check if packages are installed before installing
+          dpkg -l | grep -q cmake || sudo apt-get install -y cmake
+          dpkg -l | grep -q build-essential || sudo apt-get install -y build-essential
+          dpkg -l | grep -q perl || sudo apt-get install -y perl
+          dpkg -l | grep -q git || sudo apt-get install -y git
+          # Install OpenSSL development headers
+          dpkg -l | grep -q libssl-dev || sudo apt-get install -y libssl-dev
+
+      - name: Set up dependencies (macOS)
+        if: startsWith(matrix.platform, 'macos')
+        run: |
+          # Check if packages are installed before installing
+          command -v cmake >/dev/null 2>&1 || brew install cmake
+          command -v perl >/dev/null 2>&1 || brew install perl
+          command -v git >/dev/null 2>&1 || brew install git
+          # OpenSSL is usually already available on macOS
+
+      - name: Set up dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
+            choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+          }
+          if (-not (Get-Command perl -ErrorAction SilentlyContinue)) {
+            choco install strawberryperl -y
+          }
+          if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+            choco install git -y
+          }
+          if (-not (Get-Command nasm -ErrorAction SilentlyContinue)) {
+            choco install nasm -y
+          }
+          # Install OpenSSL development headers
+          if (-not (Test-Path "C:\Program Files\OpenSSL-Win64")) {
+            choco install openssl -y
+          }
+
+      - name: Ensure clean build dirs before clone (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [ -d "liboqs" ]; then rm -rf liboqs; fi
+
+      - name: Ensure clean build dirs before clone (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          if exist liboqs rmdir /s /q liboqs
+
+      - name: Setup MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build and install liboqs (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          git clone --branch main --depth 1 https://github.com/open-quantum-safe/liboqs.git
+          cd liboqs
+          mkdir -p build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/liboqs/install
+          make -j$(nproc || sysctl -n hw.logicalcpu)
+          make install
+
+      - name: Build and install liboqs (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          git clone --branch main --depth 1 https://github.com/open-quantum-safe/liboqs.git
+          cd liboqs
+          mkdir build
+          cd build
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=%GITHUB_WORKSPACE%\liboqs\install
+          cmake --build . --config Release
+          cmake --install . --config Release
+
+      - name: Debug oqs-provider directory structure
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "oqs-provider directory contents:"
+          ls -la oqs-provider/
+          echo "oqs-provider/CMakeLists.txt exists: $(test -f oqs-provider/CMakeLists.txt && echo 'YES' || echo 'NO')"
+
+      - name: Configure and build oqs-provider (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cd oqs-provider
+          mkdir -p build && cd build
+          cmake .. \
+            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/liboqs/install"
+          make -j$(nproc || sysctl -n hw.logicalcpu)
+
+      - name: Debug oqs-provider directory structure (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          echo Current directory: %CD%
+          echo oqs-provider directory contents:
+          dir oqs-provider
+          if exist oqs-provider\CMakeLists.txt (
+            echo oqs-provider\CMakeLists.txt exists: YES
+          ) else (
+            echo oqs-provider\CMakeLists.txt exists: NO
+          )
+
+      - name: Configure and build oqs-provider (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          cd oqs-provider
+          mkdir build
+          cd build
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="%GITHUB_WORKSPACE%\liboqs\install"
+          cmake --build . --config Release
+
+      - name: Find oqsprovider shared library
+        id: find-lib
+        shell: bash
+        run: |
+          echo "Debug: matrix.platform = ${{ matrix.platform }}"
+          echo "Debug: runner.os = ${{ runner.os }}"
+          
+          # Find oqsprovider shared library
+          if [[ "${{ matrix.platform }}" == "linux-amd64" ]]; then
+            echo "Debug: Looking for .so file"
+            libfile=$(find oqs-provider/build -name 'oqsprovider.so' | head -n1)
+          elif [[ "${{ matrix.platform }}" == "macos-amd64" || "${{ matrix.platform }}" == "macos-arm64" ]]; then
+            echo "Debug: Looking for .dylib file"
+            libfile=$(find oqs-provider/build -name 'oqsprovider.dylib' | head -n1)
+          elif [[ "${{ matrix.platform }}" == "windows-amd64" ]]; then
+            echo "Debug: Looking for .dll file"
+            libfile=$(find oqs-provider/build -name 'oqsprovider.dll' | head -n1)
+          fi
+          
+          echo "Debug: Found library file: $libfile"
+          
+          if [ -z "$libfile" ]; then
+            echo "Error: Could not find oqsprovider library"
+            echo "Debug: Contents of oqs-provider/build:"
+            find oqs-provider/build -type f
+            exit 1
+          fi
+          
+          mkdir -p _oqs_artifact
+          cp "$libfile" _oqs_artifact/
+          echo "artifact_dir=_oqs_artifact" >> $GITHUB_OUTPUT
+
+      - name: Upload oqsprovider library
+        uses: actions/upload-artifact@v4
+        with:
+          name: oqs-provider-${{ matrix.platform }}
+          path: ${{ steps.find-lib.outputs.artifact_dir }}/*
