@@ -99,29 +99,15 @@ jobs:
           echo "" >> portable-package/README.txt
           echo "Platform: Linux ${{ matrix.arch }}" >> portable-package/README.txt
           echo "Version: OpenSSL $OPENSSL_VERSION" >> portable-package/README.txt
-      - name: Package binaries
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd $INSTALL_DIR
-          zip -r openssl-$OPENSSL_VERSION-${{ matrix.arch }}-linux-full.zip *
-          mv openssl-$OPENSSL_VERSION-${{ matrix.arch }}-linux-full.zip $GITHUB_WORKSPACE/
-      - name: Create portable package
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd portable-package
-          zip -r openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.zip *
-          mv openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.zip $GITHUB_WORKSPACE/
       - name: Upload full package
         uses: actions/upload-artifact@v4
         with:
           name: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-linux-full
-          path: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-linux-full.zip
+          path: ${{ env.INSTALL_DIR }}
           retention-days: 90
       - name: Upload portable package
         uses: actions/upload-artifact@v4
         with:
           name: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-linux-portable
-          path: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-portable.zip
-          retention-days: 90 
+          path: portable-package
+          retention-days: 90
