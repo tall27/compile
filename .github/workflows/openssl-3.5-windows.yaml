@@ -105,7 +105,7 @@ jobs:
           cd portable-package
           Compress-Archive -Path * -DestinationPath openssl-$env:OPENSSL_VERSION-win64.zip
           Move-Item openssl-$env:OPENSSL_VERSION-win64.zip $env:GITHUB_WORKSPACE\
-      - name: Debug: List workspace files
+      - name: Debug List workspace files
         shell: powershell
         run: |
           Write-Host "Listing workspace files after packaging:"
