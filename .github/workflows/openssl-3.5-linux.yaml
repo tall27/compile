@@ -113,9 +113,16 @@ jobs:
           cd portable-package
           tar -czf openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.tar.gz *
           mv openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.tar.gz $GITHUB_WORKSPACE/
-      - name: Upload artifacts
+      - name: Upload full package
         uses: actions/upload-artifact@v4
         with:
-          name: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-packages
-          path: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-*.tar.gz
+          name: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-linux-full
+          path: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-linux-full.tar.gz
+          retention-days: 90
+
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-linux-portable
+          path: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-portable.tar.gz
           retention-days: 90 
