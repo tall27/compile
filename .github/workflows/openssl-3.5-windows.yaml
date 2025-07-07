@@ -1,0 +1,127 @@
+name: OpenSSL  Windows Build
+
+on:
+  workflow_dispatch:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    env:
+      OPENSSL_VERSION: 3.5.0
+    strategy:
+      matrix:
+        arch: [win64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and Setup OpenSSL Source
+        shell: cmd
+        run: |
+          echo Downloading OpenSSL %OPENSSL_VERSION%...
+          curl -L -o openssl.zip https://github.com/openssl/openssl/archive/refs/tags/openssl-%OPENSSL_VERSION%.zip
+          echo Extracting archive...
+          tar -xf openssl.zip
+          echo Renaming directory...
+          ren openssl-openssl-%OPENSSL_VERSION% openssl
+          echo Verifying directory exists...
+          dir openssl
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+      - uses: ilammy/setup-nasm@v1
+        with:
+          platform: ${{ matrix.arch }}
+      - name: Setup Perl
+        shell: cmd
+        run: choco install strawberryperl -y
+      - name: Configure
+        shell: cmd
+        run: |
+          cd openssl
+          perl Configure VC-WIN64A no-shared no-module --prefix=C:\OpenSSL --openssldir=C:\OpenSSL\ssl
+      - name: Build
+        shell: cmd
+        run: |
+          cd openssl
+          nmake
+      - name: Install
+        shell: cmd
+        run: |
+          cd openssl
+          nmake install
+      - name: Create portable executable
+        shell: cmd
+        run: |
+          echo Creating portable OpenSSL executable...
+          if not exist C:\OpenSSL\bin\openssl.exe (
+            echo ERROR: C:\OpenSSL\bin\openssl.exe does not exist!
+            dir C:\OpenSSL\bin
+            exit /b 1
+          )
+          dir C:\OpenSSL\bin
+          copy C:\OpenSSL\bin\openssl.exe openssl.exe
+          if not exist openssl.exe (
+            echo ERROR: openssl.exe was not created!
+            dir .
+            exit /b 1
+          )
+          echo Testing portable executable...
+          openssl.exe version
+          mkdir portable-package
+          copy openssl.exe portable-package\
+          if not exist portable-package\openssl.exe (
+            echo ERROR: portable-package\openssl.exe was not created!
+            dir portable-package
+            exit /b 1
+          )
+          echo OpenSSL %OPENSSL_VERSION% Portable - win64 > portable-package\README.txt
+          echo ======================================= >> portable-package\README.txt
+          echo. >> portable-package\README.txt
+          echo This is a standalone portable version of OpenSSL %OPENSSL_VERSION% >> portable-package\README.txt
+          echo No installation required - just run the executable. >> portable-package\README.txt
+          echo. >> portable-package\README.txt
+          echo Usage: openssl.exe [command] [options] >> portable-package\README.txt
+          echo. >> portable-package\README.txt
+          echo Examples: >> portable-package\README.txt
+          echo   openssl.exe version >> portable-package\README.txt
+          echo   openssl.exe list -digest-algorithms >> portable-package\README.txt
+          echo   openssl.exe genrsa -out private.key 2048 >> portable-package\README.txt
+          echo   openssl.exe req -new -x509 -key private.key -out cert.pem -days 365 >> portable-package\README.txt
+          echo. >> portable-package\README.txt
+          echo Platform: Windows win64 >> portable-package\README.txt
+          echo Version: OpenSSL %OPENSSL_VERSION% >> portable-package\README.txt
+      - name: Package binaries
+        shell: powershell
+        run: |
+          cd C:\OpenSSL
+          Compress-Archive -Path * -DestinationPath openssl-$env:OPENSSL_VERSION-win64-full.zip
+          Move-Item openssl-$env:OPENSSL_VERSION-win64-full.zip $env:GITHUB_WORKSPACE\
+      - name: Create portable package
+        shell: powershell
+        run: |
+          cd portable-package
+          Compress-Archive -Path * -DestinationPath openssl-$env:OPENSSL_VERSION-win64.zip
+          Move-Item openssl-$env:OPENSSL_VERSION-win64.zip $env:GITHUB_WORKSPACE\
+      - name: Debug List workspace files
+        shell: powershell
+        run: |
+          Write-Host "Listing workspace files after packaging:"
+          Get-ChildItem $env:GITHUB_WORKSPACE
+      - name: Print build summary
+        shell: powershell
+        run: |
+          Write-Host "Build completed for OpenSSL $env:OPENSSL_VERSION on Windows win64."
+          Write-Host "Artifacts:"
+          Get-Item "$env:GITHUB_WORKSPACE/openssl-$env:OPENSSL_VERSION-win64-full.zip" -ErrorAction SilentlyContinue | Format-List || $true
+          Get-Item "$env:GITHUB_WORKSPACE/openssl-$env:OPENSSL_VERSION-win64.zip" -ErrorAction SilentlyContinue | Format-List || $true
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openssl-${{ env.OPENSSL_VERSION }}-win64-artifacts
+          path: |
+            openssl-${{ env.OPENSSL_VERSION }}-win64-full.zip
+            openssl-${{ env.OPENSSL_VERSION }}-win64.zip
+          retention-days: 90 

@@ -1,0 +1,123 @@
+name: OpenSSL Linux Build
+
+on:
+  workflow_dispatch:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    env:
+      OPENSSL_VERSION: 3.5.0
+    strategy:
+      matrix:
+        arch: [x64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up install directory variable
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "INSTALL_DIR=$GITHUB_WORKSPACE/openssl-install" >> $GITHUB_ENV
+      - name: Clean up install directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$INSTALL_DIR"
+      - name: Download and Setup OpenSSL Source
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo Downloading OpenSSL $OPENSSL_VERSION...
+          curl -L -o openssl.zip https://github.com/openssl/openssl/archive/refs/tags/openssl-$OPENSSL_VERSION.zip
+          echo Extracting archive...
+          unzip -q openssl.zip
+          mv openssl-openssl-$OPENSSL_VERSION openssl
+          echo Verifying directory exists...
+          ls -la openssl
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y build-essential perl
+      - name: Configure
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd openssl
+          ./Configure linux-x86_64 no-shared no-module --prefix=$INSTALL_DIR --openssldir=$INSTALL_DIR/ssl
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd openssl
+          make
+      - name: Install
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd openssl
+          make install
+      - name: Create portable executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo Creating portable OpenSSL executable...
+          rm -rf ./openssl
+          cp $INSTALL_DIR/bin/openssl ./openssl
+          if [ ! -f ./openssl ]; then
+            echo "ERROR: ./openssl was not created as a file!" >&2
+            ls -l .
+            exit 1
+          fi
+          echo Testing portable executable...
+          ./openssl version
+          mkdir -p portable-package
+          cp ./openssl portable-package/
+          if [ ! -f portable-package/openssl ]; then
+            echo "ERROR: portable-package/openssl was not created!" >&2
+            ls -l portable-package
+            exit 1
+          fi
+          echo "OpenSSL $OPENSSL_VERSION Portable - ${{ matrix.arch }}" > portable-package/README.txt
+          echo "=======================================" >> portable-package/README.txt
+          echo "" >> portable-package/README.txt
+          echo "This is a standalone portable version of OpenSSL $OPENSSL_VERSION" >> portable-package/README.txt
+          echo "No installation required - just run the executable." >> portable-package/README.txt
+          echo "" >> portable-package/README.txt
+          echo "Usage: ./openssl [command] [options]" >> portable-package/README.txt
+          echo "" >> portable-package/README.txt
+          echo "Examples:" >> portable-package/README.txt
+          echo "  ./openssl version" >> portable-package/README.txt
+          echo "  ./openssl list -digest-algorithms" >> portable-package/README.txt
+          echo "  ./openssl genrsa -out private.key 2048" >> portable-package/README.txt
+          echo "  ./openssl req -new -x509 -key private.key -out cert.pem -days 365" >> portable-package/README.txt
+          echo "" >> portable-package/README.txt
+          echo "Platform: Linux ${{ matrix.arch }}" >> portable-package/README.txt
+          echo "Version: OpenSSL $OPENSSL_VERSION" >> portable-package/README.txt
+      - name: Package binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd $INSTALL_DIR
+          tar -czf openssl-$OPENSSL_VERSION-${{ matrix.arch }}-linux-full.tar.gz *
+          mv openssl-$OPENSSL_VERSION-${{ matrix.arch }}-linux-full.tar.gz $GITHUB_WORKSPACE/
+      - name: Create portable package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd portable-package
+          tar -czf openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.tar.gz *
+          mv openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.tar.gz $GITHUB_WORKSPACE/
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openssl-$OPENSSL_VERSION-${{ matrix.arch }}-packages
+          path: |
+            openssl-$OPENSSL_VERSION-${{ matrix.arch }}-linux-full.tar.gz
+            openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.tar.gz
+          retention-days: 90 
