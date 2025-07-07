@@ -2,7 +2,7 @@ name: OpenSSL Linux Build
 
 on:
   workflow_dispatch:
-  push:
+#   push:
 
 permissions:
   contents: read

@@ -2,7 +2,7 @@ name: OpenSSL macOS Build
 
 on:
   workflow_dispatch:
-  push:
+#   push:
 
 permissions:
   contents: read
@@ -109,43 +109,15 @@ jobs:
           echo "" >> portable-package/README.txt
           echo "Platform: macOS ${{ matrix.arch }}" >> portable-package/README.txt
           echo "Version: OpenSSL $OPENSSL_VERSION" >> portable-package/README.txt
-      - name: Package binaries
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd $INSTALL_DIR
-          zip -r openssl-$OPENSSL_VERSION-${{ matrix.arch }}-macos-full.zip *
-          mv openssl-$OPENSSL_VERSION-${{ matrix.arch }}-macos-full.zip $GITHUB_WORKSPACE/
-      - name: Create portable package
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd portable-package
-          zip -r openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.zip *
-          mv openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.zip $GITHUB_WORKSPACE/
-      - name: List workspace files
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Listing workspace files after packaging:"
-          ls -l $GITHUB_WORKSPACE
-      - name: Print build summary
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Build completed for OpenSSL $OPENSSL_VERSION on macOS ${{ matrix.arch }}."
-          echo "Artifacts:"
-          ls -lh $GITHUB_WORKSPACE/openssl-$OPENSSL_VERSION-${{ matrix.arch }}-macos-full.zip || true
-          ls -lh $GITHUB_WORKSPACE/openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.zip || true
       - name: Upload full package
         uses: actions/upload-artifact@v4
         with:
           name: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-macos-full
-          path: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-macos-full.zip
+          path: ${{ env.INSTALL_DIR }}
           retention-days: 90
       - name: Upload portable package
         uses: actions/upload-artifact@v4
         with:
           name: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-macos-portable
-          path: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-portable.zip
+          path: portable-package
           retention-days: 90
