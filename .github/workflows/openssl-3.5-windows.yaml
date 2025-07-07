@@ -1,4 +1,4 @@
-name: OpenSSL Build
+name: OpenSSL Build 3.5.0 Windows Build
 
 on:
   workflow_dispatch:
@@ -81,19 +81,19 @@ jobs:
         shell: powershell
         run: |
           cd C:\OpenSSL
-          Compress-Archive -Path * -DestinationPath openssl-%env:OPENSSL_VERSION%-win64-full.zip
-          Move-Item openssl-%env:OPENSSL_VERSION%-win64-full.zip $env:GITHUB_WORKSPACE\
+          Compress-Archive -Path * -DestinationPath openssl-$env:OPENSSL_VERSION-win64-full.zip
+          Move-Item openssl-$env:OPENSSL_VERSION-win64-full.zip $env:GITHUB_WORKSPACE\
       - name: Create portable package
         shell: powershell
         run: |
           cd portable-package
-          Compress-Archive -Path * -DestinationPath openssl-%env:OPENSSL_VERSION%-win64.zip
-          Move-Item openssl-%env:OPENSSL_VERSION%-win64.zip $env:GITHUB_WORKSPACE\
+          Compress-Archive -Path * -DestinationPath openssl-$env:OPENSSL_VERSION-win64.zip
+          Move-Item openssl-$env:OPENSSL_VERSION-win64.zip $env:GITHUB_WORKSPACE\
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: openssl-%env:OPENSSL_VERSION%-win64-artifacts
+          name: openssl-$env:OPENSSL_VERSION-win64-artifacts
           path: |
-            openssl-%env:OPENSSL_VERSION%-win64-full.zip
-            openssl-%env:OPENSSL_VERSION%-win64.zip
+            openssl-$env:OPENSSL_VERSION-win64-full.zip
+            openssl-$env:OPENSSL_VERSION-win64.zip
           retention-days: 90 
