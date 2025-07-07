@@ -114,15 +114,15 @@ jobs:
         run: |
           set -euo pipefail
           cd $INSTALL_DIR
-          tar -czf openssl-$OPENSSL_VERSION-${{ matrix.arch }}-macos-full.tar.gz *
-          mv openssl-$OPENSSL_VERSION-${{ matrix.arch }}-macos-full.tar.gz $GITHUB_WORKSPACE/
+          zip -r openssl-$OPENSSL_VERSION-${{ matrix.arch }}-macos-full.zip *
+          mv openssl-$OPENSSL_VERSION-${{ matrix.arch }}-macos-full.zip $GITHUB_WORKSPACE/
       - name: Create portable package
         shell: bash
         run: |
           set -euo pipefail
           cd portable-package
-          tar -czf openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.tar.gz *
-          mv openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.tar.gz $GITHUB_WORKSPACE/
+          zip -r openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.zip *
+          mv openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.zip $GITHUB_WORKSPACE/
       - name: List workspace files
         shell: bash
         run: |
@@ -135,18 +135,17 @@ jobs:
           set -euo pipefail
           echo "Build completed for OpenSSL $OPENSSL_VERSION on macOS ${{ matrix.arch }}."
           echo "Artifacts:"
-          ls -lh $GITHUB_WORKSPACE/openssl-$OPENSSL_VERSION-${{ matrix.arch }}-macos-full.tar.gz || true
-          ls -lh $GITHUB_WORKSPACE/openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.tar.gz || true
+          ls -lh $GITHUB_WORKSPACE/openssl-$OPENSSL_VERSION-${{ matrix.arch }}-macos-full.zip || true
+          ls -lh $GITHUB_WORKSPACE/openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.zip || true
       - name: Upload full package
         uses: actions/upload-artifact@v4
         with:
           name: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-macos-full
-          path: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-macos-full.tar.gz
+          path: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-macos-full.zip
           retention-days: 90
-
       - name: Upload portable package
         uses: actions/upload-artifact@v4
         with:
           name: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-macos-portable
-          path: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-portable.tar.gz
+          path: openssl-${{ env.OPENSSL_VERSION }}-${{ matrix.arch }}-portable.zip
           retention-days: 90
