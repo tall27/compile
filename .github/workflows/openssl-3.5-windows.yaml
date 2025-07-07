@@ -1,4 +1,4 @@
-name: OpenSSL  Windows Build
+name: OpenSSL Windows Build
 
 on:
   workflow_dispatch:
@@ -93,45 +93,15 @@ jobs:
           echo. >> portable-package\README.txt
           echo Platform: Windows win64 >> portable-package\README.txt
           echo Version: OpenSSL %OPENSSL_VERSION% >> portable-package\README.txt
-      - name: Package binaries
-        shell: powershell
-        run: |
-          cd C:\OpenSSL
-          Compress-Archive -Path * -DestinationPath $env:GITHUB_WORKSPACE/openssl-$env:OPENSSL_VERSION-win64-full.zip
-      - name: Create portable package
-        shell: powershell
-        run: |
-          cd portable-package
-          Compress-Archive -Path * -DestinationPath $env:GITHUB_WORKSPACE/openssl-$env:OPENSSL_VERSION-win64-portable.zip
       - name: Upload full package
         uses: actions/upload-artifact@v4
         with:
           name: openssl-${{ env.OPENSSL_VERSION }}-win64-full
-          path: openssl-${{ env.OPENSSL_VERSION }}-win64-full.zip
+          path: C:\OpenSSL
           retention-days: 90
       - name: Upload portable package
         uses: actions/upload-artifact@v4
         with:
           name: openssl-${{ env.OPENSSL_VERSION }}-win64-portable
-          path: openssl-${{ env.OPENSSL_VERSION }}-win64-portable.zip
+          path: portable-package
           retention-days: 90
-      - name: Debug List workspace files
-        shell: powershell
-        run: |
-          Write-Host "Listing workspace files after packaging:"
-          Get-ChildItem $env:GITHUB_WORKSPACE
-      - name: Print build summary
-        shell: powershell
-        run: |
-          Write-Host "Build completed for OpenSSL $env:OPENSSL_VERSION on Windows win64."
-          Write-Host "Artifacts:"
-          Get-Item "$env:GITHUB_WORKSPACE/openssl-$env:OPENSSL_VERSION-win64-full.zip" -ErrorAction SilentlyContinue | Format-List || $true
-          Get-Item "$env:GITHUB_WORKSPACE/openssl-$env:OPENSSL_VERSION-win64.zip" -ErrorAction SilentlyContinue | Format-List || $true
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: openssl-${{ env.OPENSSL_VERSION }}-win64-artifacts
-          path: |
-            openssl-${{ env.OPENSSL_VERSION }}-win64-full.zip
-            openssl-${{ env.OPENSSL_VERSION }}-win64.zip
-          retention-days: 90 
