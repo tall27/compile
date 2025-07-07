@@ -1,4 +1,4 @@
-name: OpenSSL Build 3.5.0 Windows Build
+name: OpenSSL  Windows Build
 
 on:
   workflow_dispatch:
@@ -56,11 +56,27 @@ jobs:
         shell: cmd
         run: |
           echo Creating portable OpenSSL executable...
+          if not exist C:\OpenSSL\bin\openssl.exe (
+            echo ERROR: C:\OpenSSL\bin\openssl.exe does not exist!
+            dir C:\OpenSSL\bin
+            exit /b 1
+          )
+          dir C:\OpenSSL\bin
           copy C:\OpenSSL\bin\openssl.exe openssl.exe
+          if not exist openssl.exe (
+            echo ERROR: openssl.exe was not created!
+            dir .
+            exit /b 1
+          )
           echo Testing portable executable...
           openssl.exe version
           mkdir portable-package
           copy openssl.exe portable-package\
+          if not exist portable-package\openssl.exe (
+            echo ERROR: portable-package\openssl.exe was not created!
+            dir portable-package
+            exit /b 1
+          )
           echo OpenSSL %OPENSSL_VERSION% Portable - win64 > portable-package\README.txt
           echo ======================================= >> portable-package\README.txt
           echo. >> portable-package\README.txt
@@ -89,11 +105,23 @@ jobs:
           cd portable-package
           Compress-Archive -Path * -DestinationPath openssl-$env:OPENSSL_VERSION-win64.zip
           Move-Item openssl-$env:OPENSSL_VERSION-win64.zip $env:GITHUB_WORKSPACE\
+      - name: Debug: List workspace files
+        shell: powershell
+        run: |
+          Write-Host "Listing workspace files after packaging:"
+          Get-ChildItem $env:GITHUB_WORKSPACE
+      - name: Print build summary
+        shell: powershell
+        run: |
+          Write-Host "Build completed for OpenSSL $env:OPENSSL_VERSION on Windows win64."
+          Write-Host "Artifacts:"
+          Get-Item "$env:GITHUB_WORKSPACE/openssl-$env:OPENSSL_VERSION-win64-full.zip" -ErrorAction SilentlyContinue | Format-List || $true
+          Get-Item "$env:GITHUB_WORKSPACE/openssl-$env:OPENSSL_VERSION-win64.zip" -ErrorAction SilentlyContinue | Format-List || $true
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: openssl-$env:OPENSSL_VERSION-win64-artifacts
+          name: openssl-${{ env.OPENSSL_VERSION }}-win64-artifacts
           path: |
-            openssl-$env:OPENSSL_VERSION-win64-full.zip
-            openssl-$env:OPENSSL_VERSION-win64.zip
+            openssl-${{ env.OPENSSL_VERSION }}-win64-full.zip
+            openssl-${{ env.OPENSSL_VERSION }}-win64.zip
           retention-days: 90 
