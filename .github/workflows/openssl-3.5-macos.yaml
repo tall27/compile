@@ -123,7 +123,7 @@ jobs:
           cd portable-package
           tar -czf openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.tar.gz *
           mv openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.tar.gz $GITHUB_WORKSPACE/
-      - name: Debug: List workspace files
+      - name: List workspace files
         shell: bash
         run: |
           set -euo pipefail
@@ -144,4 +144,4 @@ jobs:
           path: |
             openssl-$OPENSSL_VERSION-${{ matrix.arch }}-macos-full.tar.gz
             openssl-$OPENSSL_VERSION-${{ matrix.arch }}-portable.tar.gz
-          retention-days: 90 
+          retention-days: 90
